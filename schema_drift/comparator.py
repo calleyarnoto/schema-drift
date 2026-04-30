@@ -1,13 +1,15 @@
-"""Schema comparator module for detecting differences between two database schemas."""
+"""Schema comparison logic for schema-drift."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from schema_drift.models import Table, Column
+from schema_drift.models import Table
 
 
-class DiffType(Enum):
+class DiffType(str, Enum):
     TABLE_ADDED = "table_added"
     TABLE_REMOVED = "table_removed"
     COLUMN_ADDED = "column_added"
@@ -20,84 +22,101 @@ class SchemaDiff:
     diff_type: DiffType
     table_name: str
     column_name: Optional[str] = None
-    old_value: Optional[object] = None
-    new_value: Optional[object] = None
+    detail: Optional[str] = None
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str:  # pragma: no cover
+        parts = [self.diff_type.value, self.table_name]
         if self.column_name:
-            return (
-                f"SchemaDiff({self.diff_type.value}, table={self.table_name!r}, "
-                f"column={self.column_name!r})"
-            )
-        return f"SchemaDiff({self.diff_type.value}, table={self.table_name!r})"
+            parts.append(self.column_name)
+        if self.detail:
+            parts.append(f"({self.detail})")
+        return " ".join(parts)
 
 
 @dataclass
 class ComparisonResult:
+    schema_name: Optional[str] = None
     diffs: List[SchemaDiff] = field(default_factory=list)
 
-    @property
     def has_changes(self) -> bool:
         return len(self.diffs) > 0
 
-    @property
-    def summary(self) -> str:
-        if not self.has_changes:
-            return "No schema differences detected."
-        counts = {}
-        for diff in self.diffs:
-            counts[diff.diff_type] = counts.get(diff.diff_type, 0) + 1
-        parts = [f"{v} {k.value.replace('_', ' ')}(s)" for k, v in counts.items()]
-        return "Changes detected: " + ", ".join(parts) + "."
+    def add(self, diff: SchemaDiff) -> None:
+        self.diffs.append(diff)
+
+    def tables_added(self) -> List[SchemaDiff]:
+        return [d for d in self.diffs if d.diff_type == DiffType.TABLE_ADDED]
+
+    def tables_removed(self) -> List[SchemaDiff]:
+        return [d for d in self.diffs if d.diff_type == DiffType.TABLE_REMOVED]
+
+    def columns_changed(self) -> List[SchemaDiff]:
+        return [
+            d
+            for d in self.diffs
+            if d.diff_type
+            in (DiffType.COLUMN_ADDED, DiffType.COLUMN_REMOVED, DiffType.COLUMN_MODIFIED)
+        ]
 
 
-def compare_schemas(
-    source: List[Table], target: List[Table]
-) -> ComparisonResult:
-    """Compare two lists of Table objects and return a ComparisonResult."""
-    result = ComparisonResult()
-
-    source_map = {t.name: t for t in source}
-    target_map = {t.name: t for t in target}
-
-    for table_name in source_map:
-        if table_name not in target_map:
-            result.diffs.append(
-                SchemaDiff(DiffType.TABLE_REMOVED, table_name=table_name)
-            )
-            continue
-        _compare_columns(source_map[table_name], target_map[table_name], result)
-
-    for table_name in target_map:
-        if table_name not in source_map:
-            result.diffs.append(
-                SchemaDiff(DiffType.TABLE_ADDED, table_name=table_name)
-            )
-
-    return result
-
-
-def _compare_columns(
-    source_table: Table, target_table: Table, result: ComparisonResult
-) -> None:
-    source_cols = {c.name: c for c in source_table.columns}
-    target_cols = {c.name: c for c in target_table.columns}
+def _compare_tables(table_name: str, source: Table, target: Table) -> List[SchemaDiff]:
+    diffs: List[SchemaDiff] = []
+    source_cols = {c.name: c for c in source.columns}
+    target_cols = {c.name: c for c in target.columns}
 
     for col_name, col in source_cols.items():
         if col_name not in target_cols:
-            result.diffs.append(
-                SchemaDiff(DiffType.COLUMN_REMOVED, source_table.name, col_name,
-                           old_value=col)
+            diffs.append(
+                SchemaDiff(
+                    diff_type=DiffType.COLUMN_REMOVED,
+                    table_name=table_name,
+                    column_name=col_name,
+                )
             )
         elif col != target_cols[col_name]:
-            result.diffs.append(
-                SchemaDiff(DiffType.COLUMN_MODIFIED, source_table.name, col_name,
-                           old_value=col, new_value=target_cols[col_name])
+            detail = f"{col.data_type} -> {target_cols[col_name].data_type}"
+            diffs.append(
+                SchemaDiff(
+                    diff_type=DiffType.COLUMN_MODIFIED,
+                    table_name=table_name,
+                    column_name=col_name,
+                    detail=detail,
+                )
             )
 
-    for col_name, col in target_cols.items():
+    for col_name in target_cols:
         if col_name not in source_cols:
-            result.diffs.append(
-                SchemaDiff(DiffType.COLUMN_ADDED, source_table.name, col_name,
-                           new_value=col)
+            diffs.append(
+                SchemaDiff(
+                    diff_type=DiffType.COLUMN_ADDED,
+                    table_name=table_name,
+                    column_name=col_name,
+                )
             )
+
+    return diffs
+
+
+def compare_schemas(
+    source: Dict[str, Table],
+    target: Dict[str, Table],
+    schema_name: Optional[str] = None,
+) -> ComparisonResult:
+    result = ComparisonResult(schema_name=schema_name)
+
+    for table_name in source:
+        if table_name not in target:
+            result.add(
+                SchemaDiff(diff_type=DiffType.TABLE_REMOVED, table_name=table_name)
+            )
+        else:
+            for diff in _compare_tables(table_name, source[table_name], target[table_name]):
+                result.add(diff)
+
+    for table_name in target:
+        if table_name not in source:
+            result.add(
+                SchemaDiff(diff_type=DiffType.TABLE_ADDED, table_name=table_name)
+            )
+
+    return result
