@@ -1,0 +1,21 @@
+{
+  "name": "production",
+  "tables": {
+    "users": {
+      "columns": [
+        {"name": "id", "data_type": "INTEGER", "nullable": false, "primary_key": true},
+        {"name": "email", "data_type": "VARCHAR", "nullable": false, "max_length": 255},
+        {"name": "username", "data_type": "VARCHAR", "nullable": false, "max_length": 100},
+        {"name": "created_at", "data_type": "TIMESTAMP", "nullable": true, "default": "NOW()"}
+      ]
+    },
+    "orders": {
+      "columns": [
+        {"name": "id", "data_type": "INTEGER", "nullable": false, "primary_key": true},
+        {"name": "user_id", "data_type": "INTEGER", "nullable": false},
+        {"name": "total", "data_type": "NUMERIC", "nullable": false, "default": "0.00"},
+        {"name": "status", "data_type": "VARCHAR", "nullable": false, "max_length": 50}
+      ]
+    }
+  }
+}
