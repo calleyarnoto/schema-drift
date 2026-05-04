@@ -1,74 +1,76 @@
 """Command-line interface for schema-drift."""
 
-import argparse
 import sys
+import argparse
+from typing import List, Optional
 
-from schema_drift.comparator import compare_schemas
 from schema_drift.loader import load_schema_from_json
-from schema_drift.reporter import generate_text_report
+from schema_drift.comparator import compare_schemas
+from schema_drift.formatter import format_result
+from schema_drift.exporter import export_result, SUPPORTED_FORMATS
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="schema-drift",
-        description="Compare database schemas across environments and report differences.",
+        description="Compare database schemas across environments.",
+    )
+    parser.add_argument("source", help="Path to source schema JSON file.")
+    parser.add_argument("target", help="Path to target schema JSON file.")
+    parser.add_argument(
+        "--fail-on-drift",
+        action="store_true",
+        default=False,
+        help="Exit with code 1 when schema drift is detected.",
     )
     parser.add_argument(
-        "source",
-        metavar="SOURCE",
-        help="Path to the source schema JSON file (e.g. production).",
-    )
-    parser.add_argument(
-        "target",
-        metavar="TARGET",
-        help="Path to the target schema JSON file (e.g. staging).",
+        "--format",
+        choices=["text", "json", "markdown"],
+        default="text",
+        dest="fmt",
+        help="Output format for the diff report (default: text).",
     )
     parser.add_argument(
         "--output",
-        "-o",
         metavar="FILE",
         default=None,
-        help="Write the report to FILE instead of stdout.",
-    )
-    parser.add_argument(
-        "--exit-code",
-        action="store_true",
-        default=False,
-        help="Exit with code 1 when drift is detected, 0 otherwise.",
+        help=(
+            "Write the report to FILE instead of stdout. "
+            "Format is inferred from the extension unless --format is given."
+        ),
     )
     return parser
 
 
-def main(argv=None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
     try:
-        source_schema = load_schema_from_json(args.source)
-    except (FileNotFoundError, ValueError) as exc:
-        print(f"Error loading source schema: {exc}", file=sys.stderr)
+        source = load_schema_from_json(args.source)
+    except FileNotFoundError:
+        print(f"Error: source file not found: {args.source}", file=sys.stderr)
         return 2
 
     try:
-        target_schema = load_schema_from_json(args.target)
-    except (FileNotFoundError, ValueError) as exc:
-        print(f"Error loading target schema: {exc}", file=sys.stderr)
+        target = load_schema_from_json(args.target)
+    except FileNotFoundError:
+        print(f"Error: target file not found: {args.target}", file=sys.stderr)
         return 2
 
-    result = compare_schemas(source_schema, target_schema)
-    report = generate_text_report(result)
+    result = compare_schemas(source, target)
+    report = format_result(result, fmt=args.fmt)
 
     if args.output:
         try:
-            with open(args.output, "w", encoding="utf-8") as fh:
-                fh.write(report)
-        except OSError as exc:
-            print(f"Error writing report: {exc}", file=sys.stderr)
+            export_result(result, args.output, fmt=args.fmt if args.fmt != "text" else None)
+        except (ValueError, OSError) as exc:
+            print(f"Error writing output file: {exc}", file=sys.stderr)
             return 2
     else:
         print(report)
 
-    if args.exit_code and result.has_changes:
+    if args.fail_on_drift and result.has_changes:
         return 1
     return 0
 
