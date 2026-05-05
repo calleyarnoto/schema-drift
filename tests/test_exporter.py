@@ -40,6 +40,9 @@ class TestGetFormatFromExtension:
     def test_unknown_extension_returns_none(self):
         assert _get_format_from_extension("report.csv") is None
 
+    def test_no_extension_returns_none(self):
+        assert _get_format_from_extension("report") is None
+
 
 # ---------------------------------------------------------------------------
 # export_result
@@ -83,7 +86,14 @@ class TestExportResult:
         with pytest.raises(ValueError, match="Unsupported format"):
             export_result(_make_result(), str(out), fmt="xml")
 
-    def test_creates_parent_directories(self, tmp_path):
-        out = tmp_path / "nested" / "deep" / "report.txt"
+    def test_export_creates_parent_directories(self, tmp_path):
+        out = tmp_path / "subdir" / "nested" / "report.txt"
         export_result(_make_result(), str(out))
         assert out.exists()
+
+    def test_export_json_no_diffs(self, tmp_path):
+        out = tmp_path / "report.json"
+        export_result(_make_result(has_diffs=False), str(out))
+        data = json.loads(out.read_text())
+        assert data["schema_name"] == "mydb"
+        assert data["diffs"] == []
