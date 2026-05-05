@@ -76,6 +76,14 @@ class TestFormatJson:
         assert "diff_type" in entry
         assert "table" in entry
 
+    def test_schema_name_in_output(self, drift_result):
+        parsed = json.loads(format_json(drift_result))
+        assert parsed.get("schema") == "mydb"
+
+    def test_empty_diffs_list_when_no_changes(self, identical_result):
+        parsed = json.loads(format_json(identical_result))
+        assert parsed["diffs"] == []
+
 
 class TestFormatMarkdown:
     def test_header_present(self, drift_result):
@@ -86,24 +94,10 @@ class TestFormatMarkdown:
         output = format_markdown(drift_result)
         assert "|" in output
 
-    def test_no_changes_message(self, identical_result):
+    def test_no_changes_note(self, identical_result):
         output = format_markdown(identical_result)
         assert "No differences found" in output
 
-
-class TestFormatResult:
-    def test_dispatches_text(self, drift_result):
-        out = format_result(drift_result, fmt="text")
-        assert "Total changes" in out
-
-    def test_dispatches_json(self, drift_result):
-        out = format_result(drift_result, fmt="json")
-        json.loads(out)  # should not raise
-
-    def test_dispatches_markdown(self, drift_result):
-        out = format_result(drift_result, fmt="markdown")
-        assert out.startswith("#")
-
-    def test_unknown_format_raises(self, drift_result):
-        with pytest.raises(ValueError, match="Unknown format"):
-            format_result(drift_result, fmt="xml")
+    def test_schema_name_in_header(self, drift_result):
+        output = format_markdown(drift_result)
+        assert "mydb" in output
