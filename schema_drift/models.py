@@ -49,6 +49,18 @@ class Table:
                 return col
         return None
 
+    def add_column(self, column: Column) -> None:
+        """Add a column to the table.
+
+        Raises:
+            ValueError: If a column with the same name already exists.
+        """
+        if column.name in self.column_names:
+            raise ValueError(
+                f"Column '{column.name}' already exists in table '{self.name}'"
+            )
+        self.columns.append(column)
+
     @property
     def column_names(self) -> set[str]:
         return {col.name for col in self.columns}
