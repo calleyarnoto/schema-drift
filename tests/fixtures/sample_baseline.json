@@ -24,6 +24,14 @@
             "default": null,
             "max_length": 255
           },
+          "username": {
+            "name": "username",
+            "data_type": "VARCHAR",
+            "nullable": false,
+            "primary_key": false,
+            "default": null,
+            "max_length": 100
+          },
           "created_at": {
             "name": "created_at",
             "data_type": "TIMESTAMP",
