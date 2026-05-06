@@ -1,0 +1,49 @@
+{
+  "name": "invalid_db",
+  "tables": [
+    {
+      "name": "no_pk_table",
+      "columns": [
+        {
+          "name": "title",
+          "col_type": "VARCHAR",
+          "nullable": true,
+          "primary_key": false
+        },
+        {
+          "name": "body",
+          "col_type": "TEXT",
+          "nullable": true,
+          "primary_key": false
+        }
+      ]
+    },
+    {
+      "name": "empty_table",
+      "columns": []
+    },
+    {
+      "name": "duplicate_cols",
+      "columns": [
+        {
+          "name": "id",
+          "col_type": "INT",
+          "nullable": false,
+          "primary_key": true
+        },
+        {
+          "name": "email",
+          "col_type": "VARCHAR",
+          "nullable": true,
+          "primary_key": false
+        },
+        {
+          "name": "email",
+          "col_type": "TEXT",
+          "nullable": true,
+          "primary_key": false
+        }
+      ]
+    }
+  ]
+}
