@@ -34,6 +34,19 @@ def mixed_result():
     )
 
 
+@pytest.fixture
+def single_table_result():
+    """Result with multiple diffs all on the same table."""
+    return ComparisonResult(
+        schema_name="mydb",
+        diffs=[
+            _make_diff(DiffType.COLUMN_ADDED, "users", "email"),
+            _make_diff(DiffType.COLUMN_REMOVED, "users", "phone"),
+            _make_diff(DiffType.COLUMN_TYPE_CHANGED, "users", "name"),
+        ],
+    )
+
+
 class TestSummarize:
     def test_empty_result_no_changes(self, empty_result):
         summary = summarize(empty_result)
@@ -61,6 +74,11 @@ class TestSummarize:
         # users (column_added + column_removed) and products (type_changed)
         assert summary.tables_modified == 2
 
+    def test_tables_modified_single_table_multiple_diffs(self, single_table_result):
+        """Multiple diffs on the same table should count as one modified table."""
+        summary = summarize(single_table_result)
+        assert summary.tables_modified == 1
+
     def test_affected_tables_sorted(self, mixed_result):
         summary = summarize(mixed_result)
         assert summary.affected_tables == sorted(summary.affected_tables)
@@ -68,6 +86,10 @@ class TestSummarize:
     def test_affected_tables_contains_all(self, mixed_result):
         summary = summarize(mixed_result)
         assert set(summary.affected_tables) == {"orders", "legacy", "users", "products"}
+
+    def test_affected_tables_empty_for_no_changes(self, empty_result):
+        summary = summarize(empty_result)
+        assert summary.affected_tables == []
 
     def test_diffs_by_type_keys(self, mixed_result):
         summary = summarize(mixed_result)
@@ -78,6 +100,10 @@ class TestSummarize:
         summary = summarize(mixed_result)
         assert summary.diffs_by_type[DiffType.COLUMN_ADDED.value] == 1
         assert summary.diffs_by_type[DiffType.COLUMN_REMOVED.value] == 1
+
+    def test_diffs_by_type_empty_for_no_changes(self, empty_result):
+        summary = summarize(empty_result)
+        assert summary.diffs_by_type == {}
 
     def test_repr(self, mixed_result):
         summary = summarize(mixed_result)
