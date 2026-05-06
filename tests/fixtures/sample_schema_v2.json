@@ -1,0 +1,31 @@
+{
+  "name": "ecommerce_v2",
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true},
+        {"name": "email", "type": "VARCHAR", "nullable": false, "max_length": 255},
+        {"name": "created_at", "type": "TIMESTAMP", "nullable": true}
+      ]
+    },
+    {
+      "name": "orders",
+      "columns": [
+        {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true},
+        {"name": "user_id", "type": "INTEGER", "nullable": false},
+        {"name": "total", "type": "NUMERIC", "nullable": true},
+        {"name": "status", "type": "VARCHAR", "nullable": false, "max_length": 50}
+      ]
+    },
+    {
+      "name": "products",
+      "columns": [
+        {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true},
+        {"name": "name", "type": "VARCHAR", "nullable": false, "max_length": 200},
+        {"name": "price", "type": "NUMERIC", "nullable": false},
+        {"name": "stock", "type": "INTEGER", "nullable": true, "default": "0"}
+      ]
+    }
+  ]
+}
