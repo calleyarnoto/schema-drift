@@ -1,13 +1,17 @@
 """Command-line interface for schema-drift."""
 
-import sys
 import argparse
-from typing import List, Optional
-
+import sys
 from schema_drift.loader import load_schema_from_json
 from schema_drift.comparator import compare_schemas
 from schema_drift.formatter import format_result
-from schema_drift.exporter import export_result, SUPPORTED_FORMATS
+from schema_drift.exporter import export_result
+from schema_drift.filter import (
+    filter_by_diff_type,
+    filter_by_tables,
+    exclude_tables,
+)
+from schema_drift.comparator import DiffType
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -15,34 +19,48 @@ def build_parser() -> argparse.ArgumentParser:
         prog="schema-drift",
         description="Compare database schemas across environments.",
     )
-    parser.add_argument("source", help="Path to source schema JSON file.")
-    parser.add_argument("target", help="Path to target schema JSON file.")
-    parser.add_argument(
-        "--fail-on-drift",
-        action="store_true",
-        default=False,
-        help="Exit with code 1 when schema drift is detected.",
-    )
+    parser.add_argument("source", help="Path to the source schema JSON file.")
+    parser.add_argument("target", help="Path to the target schema JSON file.")
     parser.add_argument(
         "--format",
         choices=["text", "json", "markdown"],
         default="text",
-        dest="fmt",
-        help="Output format for the diff report (default: text).",
+        help="Output format (default: text).",
     )
     parser.add_argument(
         "--output",
         metavar="FILE",
-        default=None,
-        help=(
-            "Write the report to FILE instead of stdout. "
-            "Format is inferred from the extension unless --format is given."
-        ),
+        help="Write report to FILE instead of stdout.",
+    )
+    parser.add_argument(
+        "--exit-code",
+        action="store_true",
+        help="Exit with code 1 if drift is detected.",
+    )
+    parser.add_argument(
+        "--only-tables",
+        metavar="TABLE",
+        nargs="+",
+        help="Restrict comparison to these tables.",
+    )
+    parser.add_argument(
+        "--exclude-tables",
+        metavar="TABLE",
+        nargs="+",
+        dest="exclude_tables",
+        help="Exclude these tables from the comparison.",
+    )
+    parser.add_argument(
+        "--only-types",
+        metavar="TYPE",
+        nargs="+",
+        choices=[t.value for t in DiffType],
+        help="Show only diffs of these types.",
     )
     return parser
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -59,21 +77,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     result = compare_schemas(source, target)
-    report = format_result(result, fmt=args.fmt)
+
+    if args.only_tables:
+        result = filter_by_tables(result, args.only_tables)
+    if args.exclude_tables:
+        result = exclude_tables(result, args.exclude_tables)
+    if args.only_types:
+        types = [DiffType(t) for t in args.only_types]
+        result = filter_by_diff_type(result, types)
 
     if args.output:
-        try:
-            export_result(result, args.output, fmt=args.fmt if args.fmt != "text" else None)
-        except (ValueError, OSError) as exc:
-            print(f"Error writing output file: {exc}", file=sys.stderr)
-            return 2
+        export_result(result, args.output)
     else:
-        print(report)
+        print(format_result(result, fmt=args.format))
 
-    if args.fail_on_drift and result.has_changes:
+    if args.exit_code and result.has_changes():
         return 1
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     sys.exit(main())
