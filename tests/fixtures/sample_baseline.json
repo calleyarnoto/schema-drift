@@ -1,0 +1,39 @@
+{
+  "name": "production",
+  "created_at": "2024-01-15T12:00:00+00:00",
+  "description": "Production schema baseline captured 2024-01-15",
+  "schema": {
+    "name": "production",
+    "tables": {
+      "users": {
+        "name": "users",
+        "columns": {
+          "id": {
+            "name": "id",
+            "data_type": "INTEGER",
+            "nullable": false,
+            "primary_key": true,
+            "default": null,
+            "max_length": null
+          },
+          "email": {
+            "name": "email",
+            "data_type": "VARCHAR",
+            "nullable": false,
+            "primary_key": false,
+            "default": null,
+            "max_length": 255
+          },
+          "created_at": {
+            "name": "created_at",
+            "data_type": "TIMESTAMP",
+            "nullable": true,
+            "primary_key": false,
+            "default": "now()",
+            "max_length": null
+          }
+        }
+      }
+    }
+  }
+}
