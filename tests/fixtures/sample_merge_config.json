@@ -1,0 +1,14 @@
+{
+  "label": "staging-vs-prod-merge",
+  "deduplicate": true,
+  "sources": [
+    {
+      "name": "staging",
+      "file": "tests/fixtures/sample_schema.json"
+    },
+    {
+      "name": "production",
+      "file": "tests/fixtures/sample_schema_v2.json"
+    }
+  ]
+}
